@@ -16,10 +16,11 @@ if __name__ == '__main__':
   for split in SPLITS:
     data_path = DATA_PATH + (split if not HALF_VIDEO else 'train')
     out_path = OUT_PATH + '{}.json'.format(split)
+    # 转换完成以后的coco应该就包含这些字段
     out = {'images': [], 'annotations': [], 
            'categories': [{'id': 1, 'name': 'pedestrain'}],
            'videos': []}
-    seqs = os.listdir(data_path)
+    seqs = os.listdir(data_path) # 列出mot中所有的序列
     image_cnt = 0
     ann_cnt = 0
     video_cnt = 0
@@ -37,7 +38,7 @@ if __name__ == '__main__':
       ann_path = seq_path + 'gt/gt.txt'
       images = os.listdir(img_path)
       num_images = len([image for image in images if 'jpg' in image])
-      if HALF_VIDEO and ('half' in split):
+      if HALF_VIDEO and ('half' in split): # half video 取一半的video
         image_range = [0, num_images // 2] if 'train' in split else \
           [num_images // 2 + 1, num_images - 1]
       else:
@@ -48,14 +49,14 @@ if __name__ == '__main__':
         image_info = {'file_name': '{}/img1/{:06d}.jpg'.format(seq, i + 1),
                       'id': image_cnt + i + 1,
                       'frame_id': i + 1 - image_range[0],
-                      'prev_image_id': image_cnt + i if i > 0 else -1,
+                      'prev_image_id': image_cnt + i if i > 0 else -1, # 还有这个字段，上一张图片以及下一张图片
                       'next_image_id': \
                         image_cnt + i + 2 if i < num_images - 1 else -1,
                       'video_id': video_cnt}
         out['images'].append(image_info)
       print('{}: {} images'.format(seq, num_images))
       if split != 'test':
-        det_path = seq_path + 'det/det.txt'
+        det_path = seq_path + 'det/det.txt' # 肯定阿，只有train里面才会det和gt
         anns = np.loadtxt(ann_path, dtype=np.float32, delimiter=',')
         dets = np.loadtxt(det_path, dtype=np.float32, delimiter=',')
         if CREATE_SPLITTED_ANN and ('half' in split):

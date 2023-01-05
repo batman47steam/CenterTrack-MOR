@@ -122,7 +122,7 @@ class opts(object):
                              help='when to save the model to disk.')
     self.parser.add_argument('--num_epochs', type=int, default=70,
                              help='total training epochs.')
-    self.parser.add_argument('--batch_size', type=int, default=32,
+    self.parser.add_argument('--batch_size', type=int, default=8, # 默认32
                              help='batch size')
     self.parser.add_argument('--master_batch_size', type=int, default=-1,
                              help='batch size on the master gpu.')
@@ -335,7 +335,7 @@ class opts(object):
     input_w = opt.input_res if opt.input_res > 0 else input_w
     opt.input_h = opt.input_h if opt.input_h > 0 else input_h
     opt.input_w = opt.input_w if opt.input_w > 0 else input_w
-    opt.output_h = opt.input_h // opt.down_ratio
+    opt.output_h = opt.input_h // opt.down_ratio # 这里来看输出的图像尺寸就是原始图像的大小除以降采样率
     opt.output_w = opt.input_w // opt.down_ratio
     opt.input_res = max(opt.input_h, opt.input_w)
     opt.output_res = max(opt.output_h, opt.output_w)

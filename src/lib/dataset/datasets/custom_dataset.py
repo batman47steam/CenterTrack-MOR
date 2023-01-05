@@ -18,16 +18,16 @@ class CustomDataset(GenericDataset):
       'The following arguments must be specified for custom datasets: ' + \
       'custom_dataset_img_path, custom_dataset_ann_path, num_classes, ' + \
       'input_h, input_w.'
-    img_dir = opt.custom_dataset_img_path
+    img_dir = opt.custom_dataset_img_path # img_dir以及ann_path都需要命令行明确制定
     ann_path = opt.custom_dataset_ann_path
-    self.num_categories = opt.num_classes
+    self.num_categories = opt.num_classes # 类别数目也是从命令行确定
     self.class_name = ['' for _ in range(self.num_categories)]
-    self.default_resolution = [opt.input_h, opt.input_w]
+    self.default_resolution = [opt.input_h, opt.input_w] # 默认分辨率，分辨率如果不能被32整除会报错
     self.cat_ids = {i: i for i in range(1, self.num_categories + 1)}
 
     self.images = None
     # load image list and coco
-    super().__init__(opt, split, ann_path, img_dir)
+    super().__init__(opt, split, ann_path, img_dir) # 这里应该是直接继承了GenericDataset里面init的部分
 
     self.num_samples = len(self.images)
     print('Loaded Custom dataset {} samples'.format(self.num_samples))

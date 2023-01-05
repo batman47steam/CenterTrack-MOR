@@ -162,11 +162,11 @@ class Root(nn.Module):
         self.residual = residual
 
     def forward(self, *x):
-        children = x
-        x = self.conv(torch.cat(x, 1))
+        children = x # 明显输入的x是一个list
+        x = self.conv(torch.cat(x, 1)) # cat即是（B,C,H,W) 在channel方向把不同的输入进行拼接
         x = self.bn(x)
         if self.residual:
-            x += children[0]
+            x += children[0] # children[0]从dla的图片上来看每个root应该是
         x = self.relu(x)
 
         return x
@@ -179,9 +179,9 @@ class Tree(nn.Module):
         super(Tree, self).__init__()
         if root_dim == 0:
             root_dim = 2 * out_channels
-        if level_root:
+        if level_root: # level_root应该是在控制通道的数目
             root_dim += in_channels
-        if levels == 1:
+        if levels == 1: # levels=1的时候是没有递归发生了，估计就是正常的basicblock
             self.tree1 = block(in_channels, out_channels, stride,
                                dilation=dilation)
             self.tree2 = block(out_channels, out_channels, 1,
@@ -204,7 +204,7 @@ class Tree(nn.Module):
         self.project = None
         self.levels = levels
         if stride > 1:
-            self.downsample = nn.MaxPool2d(stride, stride=stride)
+            self.downsample = nn.MaxPool2d(stride, stride=stride) # 降采样就是通过maxpool来实现的
         if in_channels != out_channels:
             self.project = nn.Sequential(
                 nn.Conv2d(in_channels, out_channels,
@@ -214,11 +214,11 @@ class Tree(nn.Module):
 
     def forward(self, x, residual=None, children=None):
         children = [] if children is None else children
-        bottom = self.downsample(x) if self.downsample else x
-        residual = self.project(bottom) if self.project else bottom
-        if self.level_root:
+        bottom = self.downsample(x) if self.downsample else x  # downsample就是一个stride为2的maxpool
+        residual = self.project(bottom) if self.project else bottom # project是把conv+bn, 主要目的就是使得out_channel和in_channel相同
+        if self.level_root: # 把bottom都加入到叶子节点中，注意bottom是没有经过project的
             children.append(bottom)
-        x1 = self.tree1(x, residual)
+        x1 = self.tree1(x, residual) # 这里应该就是递归的部分了
         if self.levels == 1:
             x2 = self.tree2(x1)
             x = self.root(x2, x1, *children)

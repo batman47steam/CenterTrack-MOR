@@ -134,6 +134,7 @@ def gaussian2D(shape, sigma=1):
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
 
+# 会在一定的半径范围内去画出高斯函数
 # @numba.jit(nopython=True, nogil=True)
 def draw_umich_gaussian(heatmap, center, radius, k=1):
   # import pdb; pdb.set_trace()

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def get_model_url(data='imagenet', name='dla34', hash='ba72cf86'):
     return join('http://dl.yf.io/dla/models', data, '{}-{}.pth'.format(name, hash))
 
-
+# 带padding的3x3卷积
 def conv3x3(in_planes, out_planes, stride=1):
     "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -226,7 +226,7 @@ class DLA(nn.Module):
                  opt=None):
         super(DLA, self).__init__()
         self.channels = channels
-        self.base_layer = nn.Sequential(
+        self.base_layer = nn.Sequential( # base_layer 输入通道数为3，kernel=7，samepadding
             nn.Conv2d(3, channels[0], kernel_size=7, stride=1,
                       padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
@@ -253,7 +253,7 @@ class DLA(nn.Module):
         #         m.bias.data.zero_()
         if opt.pre_img:
             print('adding pre_img layer...')
-            self.pre_img_layer = nn.Sequential(
+            self.pre_img_layer = nn.Sequential( # pre_img_layer, 也即conv7x7 + BN + Relu
             nn.Conv2d(3, channels[0], kernel_size=7, stride=1,
                       padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
@@ -283,6 +283,7 @@ class DLA(nn.Module):
 
         return nn.Sequential(*layers)
 
+
     def _make_conv_level(self, inplanes, planes, convs, stride=1, dilation=1):
         modules = []
         for i in range(convs):
@@ -308,8 +309,8 @@ class DLA(nn.Module):
         
         return y
 
-    def load_pretrained_model(self, data='imagenet', name='dla34', hash='ba72cf86'):
-        if name.endswith('.pth'):
+    def load_pretrained_model(self, data='imagenet', name='dla34', hash='ba72cf86'): # name='dla34'
+        if name.endswith('.pth'): # 如果name的后面是带有pth的，那就不用下载了，可以直接从文件路径去读取
             model_weights = torch.load(data + name)
         else:
             model_url = get_model_url(data, name, hash)
