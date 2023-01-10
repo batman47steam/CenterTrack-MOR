@@ -33,11 +33,15 @@ def demo(opt):
     # Demo on images sequences
     if os.path.isdir(opt.demo):
       image_names = []
-      ls = os.listdir(opt.demo)
+      ls = os.listdir(opt.demo) # 这里是在读取demo文件夹下的所有文件, 正好有排序，排序的时候把第一张图片加进去
+      index = 0
       for file_name in sorted(ls):
           ext = file_name[file_name.rfind('.') + 1:].lower()
+          if index == 0:
+              background_path = os.path.join(opt.demo, file_name)
           if ext in image_ext:
               image_names.append(os.path.join(opt.demo, file_name))
+          index += 1
     else:
       image_names = [opt.demo]
 
@@ -64,7 +68,8 @@ def demo(opt):
           save_and_exit(opt, out, results, out_name)
       else:
         if cnt < len(image_names):
-          img = cv2.imread(image_names[cnt])
+          background = cv2.imread(background_path)
+          img = cv2.imread(image_names[cnt]) # 如果计数器小于图片的数目，就会不停的读取新的图片出来
         else:
           save_and_exit(opt, out, results, out_name)
       cnt += 1
@@ -78,9 +83,10 @@ def demo(opt):
         continue
       
       cv2.imshow('input', img)
+      cv2.imshow('background', background)
 
       # track or detect the image.
-      ret = detector.run(img)
+      ret = detector.run(img, background) # 这里肯定是运行detector的核心部分，这个时候的pre_img, pre_hm之类的东西是如何加载的 ？？
 
       # log run time
       time_str = 'frame {} |'.format(cnt)

@@ -35,6 +35,7 @@ class Detector(object):
     self.model = self.model.to(opt.device)
     self.model.eval()
 
+    # 添加self.background
     self.opt = opt
     self.trained_dataset = get_dataset(opt.dataset)
     self.mean = np.array(
@@ -48,11 +49,13 @@ class Detector(object):
     self.cnt = 0
     self.pre_images = None
     self.pre_image_ori = None
+    # background 第一张图片
+    self.background_image = None
     self.tracker = Tracker(opt)
     self.debugger = Debugger(opt=opt, dataset=self.trained_dataset)
 
 
-  def run(self, image_or_path_or_tensor, meta={}):
+  def run(self, image_or_path_or_tensor, another_image_or_path_or_tensor, meta={}):
     load_time, pre_time, net_time, dec_time, post_time = 0, 0, 0, 0, 0
     merge_time, track_time, tot_time, display_time = 0, 0, 0, 0
     self.debugger.clear()
@@ -62,6 +65,7 @@ class Detector(object):
     pre_processed = False
     if isinstance(image_or_path_or_tensor, np.ndarray):
       image = image_or_path_or_tensor
+      self.background_image = another_image_or_path_or_tensor
     elif type(image_or_path_or_tensor) == type (''): 
       image = cv2.imread(image_or_path_or_tensor)
     else:
@@ -80,6 +84,7 @@ class Detector(object):
       if not pre_processed:
         # not prefetch testing or demo
         images, meta = self.pre_process(image, scale, meta)
+        self.background_image, _ = self.pre_process(self.background_image, scale, meta)
       else:
         # prefetch testing
         images = pre_processed_images['images'][scale][0]
@@ -91,12 +96,13 @@ class Detector(object):
           meta['cur_dets'] = pre_processed_images['meta']['cur_dets']
       
       images = images.to(self.opt.device, non_blocking=self.opt.non_block_test)
+      self.background_image = self.background_image.to(self.opt.device, non_blocking=self.opt.non_block_test)
 
       # initializing tracker
       pre_hms, pre_inds = None, None
       if self.opt.tracking:
         # initialize the first frame
-        if self.pre_images is None:
+        if self.pre_images is None: # 第一次的时候pre_images肯定是none
           print('Initialize tracking!')
           self.pre_images = images
           self.tracker.init_track(
@@ -106,7 +112,7 @@ class Detector(object):
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          pre_hms, pre_inds = self._get_additional_inputs(
+          pre_hms, pre_inds = self._get_additional_inputs( # 之前的结果那些是通过_get_additional_inputs 得到的只得到了之前的heatmap，没有pre_img
             self.tracker.tracks, meta, with_hm=not self.opt.zero_pre_hm)
       
       pre_process_time = time.time()
@@ -115,8 +121,8 @@ class Detector(object):
       # run the network
       # output: the output feature maps, only used for visualizing
       # dets: output tensors after extracting peaks
-      output, dets, forward_time = self.process(
-        images, self.pre_images, pre_hms, pre_inds, return_time=True)
+      output, dets, forward_time = self.process( # process这里肯定是也要加载第一张图片的
+        images, self.background_image, self.pre_images, pre_hms, pre_inds, return_time=True)
       net_time += forward_time - pre_process_time
       decode_time = time.time()
       dec_time += decode_time - forward_time
@@ -145,7 +151,7 @@ class Detector(object):
       public_det = meta['cur_dets'] if self.opt.public_det else None
       # add tracking id to results
       results = self.tracker.step(results, public_det)
-      self.pre_images = images
+      self.pre_images = images # 什么意思，反正先把pre_images设置为当前的image，这样下一次开始的时候就是真正的pre_image了
 
     tracking_time = time.time()
     track_time += tracking_time - end_time
@@ -158,7 +164,7 @@ class Detector(object):
     show_results_time = time.time()
     display_time += show_results_time - end_time
     
-    # return results and run time
+    # return results and run time 这里也要把background给添加进去
     ret = {'results': results, 'tot': tot_time, 'load': load_time,
             'pre': pre_time, 'net': net_time, 'dec': dec_time,
             'post': post_time, 'merge': merge_time, 'track': track_time,
@@ -262,14 +268,14 @@ class Detector(object):
 
     output_inds = []
     for det in dets:
-      if det['score'] < self.opt.pre_thresh or det['active'] == 0:
+      if det['score'] < self.opt.pre_thresh or det['active'] == 0: # 这里就是heatmpa的结果会过一遍阈值吧
         continue
       bbox = self._trans_bbox(det['bbox'], trans_input, inp_width, inp_height)
       bbox_out = self._trans_bbox(
         det['bbox'], trans_output, out_width, out_height)
       h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
       if (h > 0 and w > 0):
-        radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+        radius = gaussian_radius((math.ceil(h), math.ceil(w))) # 感觉像是在用前一帧的检测结果重新的去画一个heatmap
         radius = max(0, int(radius))
         ct = np.array(
           [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
@@ -332,11 +338,11 @@ class Detector(object):
     return output
 
 
-  def process(self, images, pre_images=None, pre_hms=None,
+  def process(self, images, background, pre_images=None, pre_hms=None,
     pre_inds=None, return_time=False):
     with torch.no_grad():
       torch.cuda.synchronize()
-      output = self.model(images, pre_images, pre_hms)[-1]
+      output = self.model(images, background, pre_images, pre_hms)[-1] # 要在这里传入background
       output = self._sigmoid_output(output)
       output.update({'pre_inds': pre_inds})
       if self.opt.flip_test:

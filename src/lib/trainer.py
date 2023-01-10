@@ -20,15 +20,17 @@ from utils.post_process import generic_post_process
 class GenericLoss(torch.nn.Module):
   def __init__(self, opt):
     super(GenericLoss, self).__init__()
-    self.crit = FastFocalLoss(opt=opt)
-    self.crit_reg = RegWeightedL1Loss()
+    self.crit = FastFocalLoss(opt=opt) # FocalLoss对应目标检测的，主要是heatmap方面
+
+
+    self.crit_reg = RegWeightedL1Loss() # 这个是对应缩放以后的中心点的offset
     if 'rot' in opt.heads:
       self.crit_rot = BinRotLoss()
     if 'nuscenes_att' in opt.heads:
       self.crit_nuscenes_att = WeightedBCELoss()
     self.opt = opt
 
-  def _sigmoid_output(self, output):
+  def _sigmoid_output(self, output): # 只有heatmap的输出是要经过sigmod的，变成0-1之间
     if 'hm' in output:
       output['hm'] = _sigmoid(output['hm'])
     if 'hm_hp' in output:
@@ -45,7 +47,7 @@ class GenericLoss(torch.nn.Module):
       output = outputs[s]
       output = self._sigmoid_output(output)
 
-      if 'hm' in output:
+      if 'hm' in output: # 如果output里面有heatmap， crit就是之前定义的focalloss，这个更多的是对中心点进行预测吧
         losses['hm'] += self.crit(
           output['hm'], batch['hm'], batch['ind'], 
           batch['mask'], batch['cat']) / opt.num_stacks
@@ -56,8 +58,8 @@ class GenericLoss(torch.nn.Module):
 
       for head in regression_heads:
         if head in output:
-          losses[head] += self.crit_reg(
-            output[head], batch[head + '_mask'],
+          losses[head] += self.crit_reg( # 上面的这些head用的都是weighted l1 loss
+            output[head], batch[head + '_mask'], # 这个mask是干什么的，
             batch['ind'], batch[head]) / opt.num_stacks
       
       if 'hm_hp' in output:
@@ -81,7 +83,7 @@ class GenericLoss(torch.nn.Module):
 
     losses['tot'] = 0
     for head in opt.heads:
-      losses['tot'] += opt.weights[head] * losses[head]
+      losses['tot'] += opt.weights[head] * losses[head] # tot就是总的loss，也就是权重乘上每个loss
     
     return losses['tot'], losses
 
@@ -95,7 +97,8 @@ class ModleWithLoss(torch.nn.Module):
   def forward(self, batch):
     pre_img = batch['pre_img'] if 'pre_img' in batch else None
     pre_hm = batch['pre_hm'] if 'pre_hm' in batch else None
-    outputs = self.model(batch['image'], pre_img, pre_hm)
+    background = batch['background'] if 'background' in batch else None
+    outputs = self.model(batch['image'], background, pre_img, pre_hm)
     loss, loss_stats = self.loss(outputs, batch)
     return outputs[-1], loss, loss_stats
 
@@ -205,6 +208,7 @@ class Trainer(object):
       gt = debugger.gen_colormap(batch['hm'][i].detach().cpu().numpy())
       debugger.add_blend_img(img, pred, 'pred_hm')
       debugger.add_blend_img(img, gt, 'gt_hm')
+
 
       if 'pre_img' in batch:
         pre_img = batch['pre_img'][i].detach().cpu().numpy().transpose(1, 2, 0)

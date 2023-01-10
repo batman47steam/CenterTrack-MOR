@@ -70,9 +70,9 @@ class BaseModel(nn.Module):
     def imgpre2feats(self, x, pre_img=None, pre_hm=None):
       raise NotImplementedError
 
-    def forward(self, x, pre_img=None, pre_hm=None):
+    def forward(self, x, background, pre_img=None, pre_hm=None):
       if (pre_hm is not None) or (pre_img is not None):
-        feats = self.imgpre2feats(x, pre_img, pre_hm)
+        feats = self.imgpre2feats(x, background, pre_img, pre_hm)
       else:
         feats = self.img2feats(x)
       out = []
@@ -86,6 +86,6 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = {}
           for head in self.heads:
-              z[head] = self.__getattr__(head)(feats[s])
+              z[head] = self.__getattr__(head)(feats[s]) # 这个head这里就不对了，明明是两个类别，但是输出的通道数还是80
           out.append(z)
       return out

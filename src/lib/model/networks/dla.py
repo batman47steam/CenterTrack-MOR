@@ -218,7 +218,7 @@ class Tree(nn.Module):
         residual = self.project(bottom) if self.project else bottom # project是把conv+bn, 主要目的就是使得out_channel和in_channel相同
         if self.level_root: # 把bottom都加入到叶子节点中，注意bottom是没有经过project的
             children.append(bottom)
-        x1 = self.tree1(x, residual) # 这里应该就是递归的部分了
+        x1 = self.tree1(x, residual) # 如果level=1,其实调用的是basicblock的foreward部分
         if self.levels == 1:
             x2 = self.tree2(x1)
             x = self.root(x2, x1, *children)
@@ -302,16 +302,17 @@ class DLA(nn.Module):
             inplanes = planes
         return nn.Sequential(*modules)
 
-    def forward(self, x, pre_img=None, pre_hm=None):
+    def forward(self, x, background, pre_img=None, pre_hm=None):
         y = []
         x = self.base_layer(x)
+        x = x + self.base_layer(background) # 没问题吧，反正背景图片也是3通道的
         if pre_img is not None:
             x = x + self.pre_img_layer(pre_img)
         if pre_hm is not None:
             x = x + self.pre_hm_layer(pre_hm)
         for i in range(6):
             x = getattr(self, 'level{}'.format(i))(x)
-            y.append(x)
+            y.append(x) # append 其实也就是为了得到每个level对应的输出吧
         
         return y
 
@@ -628,8 +629,8 @@ class DLASeg(BaseModel):
 
         return [y[-1]]
 
-    def imgpre2feats(self, x, pre_img=None, pre_hm=None):
-        x = self.base(x, pre_img, pre_hm)
+    def imgpre2feats(self, x, background, pre_img=None, pre_hm=None):
+        x = self.base(x, background, pre_img, pre_hm) #base是对应的backbone吗
         x = self.dla_up(x)
 
         y = []

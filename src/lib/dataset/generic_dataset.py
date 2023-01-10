@@ -74,10 +74,21 @@ class GenericDataset(data.Dataset):
       
       self.img_dir = img_dir
 
+      # 在处理图片序列的时候每个序列读取第一张图片
+      self.first_images = {}
+      folders = os.listdir(img_dir)
+      for folder in folders:
+        path = os.path.join(img_dir, folder)
+        if(os.path.isdir(path)):
+          first_image = cv2.imread(os.path.join(path, 'in000001.jpg'))
+          self.first_images[folder] = first_image
+
+      print(os.listdir(img_dir))
+
   # __getitem__肯定是最关键的部分，__len__已经在custom_dataset里面实现了
   def __getitem__(self, index):
     opt = self.opt
-    img, anns, img_info, img_path = self._load_data(index) # 加载了图像以及标注信息
+    img, anns, img_info, img_path, background = self._load_data(index) # 加载了图像以及标注信息,这里的图片大小以及标注信息肯定就是对应原始图片的
 
     # c图像的中心点，s图像的缩放比例
     height, width = img.shape[0], img.shape[1]
@@ -98,9 +109,9 @@ class GenericDataset(data.Dataset):
       c, s, rot, [opt.input_w, opt.input_h])
     trans_output = get_affine_transform(
       c, s, rot, [opt.output_w, opt.output_h])
-    cv2.imshow('origin', img)
-    inp = self._get_input(img, trans_input) # trans_input是一个指导输入进行仿射变化的矩阵
-    ret = {'image': inp} # 截止到这里，针对输入图片的变化应该是没什么问题了
+    inp = self._get_input(img, trans_input) # 从实际图片的大小，变成了opt参数指定的输入图片的大小
+    background = self._get_input(background, trans_input)
+    ret = {'image': inp, 'background': background} # 截止到这里，针对输入图片的变化应该是没什么问题了, 这里都把inp给保存了，后面还有针对他的操作吗
     gt_det = {'bboxes': [], 'scores': [], 'clses': [], 'cts': []} # cts是什么？=> centers ??
 
     # 一系列的数据增强，以及得到之前的图片和heatmap
@@ -171,15 +182,22 @@ class GenericDataset(data.Dataset):
     ann_ids = coco.getAnnIds(imgIds=[img_id])
     anns = copy.deepcopy(coco.loadAnns(ids=ann_ids))
     img = cv2.imread(img_path)
-    return img, anns, img_info, img_path
+
+    # 根据文件名取出每个序列所对应的第一张图片
+    seq = os.path.dirname(file_name).split('/')[0]
+    background = self.first_images[seq]
+    #cv2.imshow('background', background)
+    #cv2.waitKey(0)
+
+    return img, anns, img_info, img_path, background
 
   def _load_data(self, index):
     coco = self.coco
     img_dir = self.img_dir
     img_id = self.images[index]
-    img, anns, img_info, img_path = self._load_image_anns(img_id, coco, img_dir)
+    img, anns, img_info, img_path, background = self._load_image_anns(img_id, coco, img_dir)
 
-    return img, anns, img_info, img_path
+    return img, anns, img_info, img_path, background
 
 # 根据名字来看就是在加载前一帧的图片之类的
 # 在训练核测试的时候，这个的表现是不同的，
@@ -207,7 +225,7 @@ class GenericDataset(data.Dataset):
     rand_id = np.random.choice(len(img_ids)) # 单张图片的话，img_ids的长度就为1，rand_id基本上就是0
     img_id, pre_frame_id = img_ids[rand_id] # pre_frame_id 就是图片本身的id
     frame_dist = abs(frame_id - pre_frame_id) # frame_dist就为0，肯定阿，因为他是把单张的图片去看作一个视频的序列
-    img, anns, _, _ = self._load_image_anns(img_id, self.coco, self.img_dir)
+    img, anns, _, _, _ = self._load_image_anns(img_id, self.coco, self.img_dir)
     return img, anns, frame_dist
 
 
