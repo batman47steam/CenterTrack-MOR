@@ -1,6 +1,18 @@
 # Tracking Objects as Points
+## Current
+
+#### 1-10
+
+- [x] 改成4个输入，background image, current image, pre image, pre heatmap
+  - [x] 其中background image 就是读取每个文件夹下的第一张图片
+
+
+
+## Origin
+
 Simultaneous object detection and tracking using center points:
 ![](readme/fig2.png)
+
 > [**Tracking Objects as Points**](http://arxiv.org/abs/2004.01177),            
 > Xingyi Zhou, Vladlen Koltun, Philipp Kr&auml;henb&uuml;hl,        
 > *arXiv technical report ([arXiv 2004.01177](http://arxiv.org/abs/2004.01177))*  
