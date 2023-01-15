@@ -228,9 +228,53 @@ class Tree(nn.Module):
         return x
 
 
+class SEBlock(nn.Module):
+    # 初始化, in_channel代表输入特征图的通道数, ratio代表第一个全连接下降通道的倍数
+    def __init__(self, in_channel, ratio=16):
+        # 继承父类初始化方法
+        super(SEBlock, self).__init__()
+
+        # 属性分配
+        # 全局平均池化，输出的特征图的宽高=1
+        self.avg_pool = nn.AdaptiveAvgPool2d(output_size=1)
+        # 第一个全连接层将特征图的通道数下降4倍
+        self.fc1 = nn.Linear(in_features=in_channel, out_features=in_channel // ratio, bias=False)
+        # relu激活
+        self.relu = nn.ReLU()
+        # 第二个全连接层恢复通道数
+        self.fc2 = nn.Linear(in_features=in_channel // ratio, out_features=in_channel, bias=False)
+        # sigmoid激活函数，将权值归一化到0-1
+        self.sigmoid = nn.Sigmoid()
+
+    # 前向传播
+    def forward(self, inputs):  # inputs 代表输入特征图
+
+        # 获取输入特征图的shape
+        b, c, h, w = inputs.shape
+        # 全局平均池化 [b,c,h,w]==>[b,c,1,1]
+        x = self.avg_pool(inputs)
+        # 维度调整 [b,c,1,1]==>[b,c]
+        x = x.view([b, c])
+
+        # 第一个全连接下降通道 [b,c]==>[b,c//4]
+        x = self.fc1(x)
+        x = self.relu(x)
+        # 第二个全连接上升通道 [b,c//4]==>[b,c]
+        x = self.fc2(x)
+        # 对通道权重归一化处理
+        x = self.sigmoid(x)
+
+        # 调整维度 [b,c]==>[b,c,1,1]
+        x = x.view([b, c, 1, 1])
+
+        # 将输入特征图和通道权重相乘
+        outputs = x * inputs
+        return outputs
+
+
 class DLA(nn.Module):
     def __init__(self, levels, channels, num_classes=1000,
-                 block=BasicBlock, residual_root=False, linear_root=False,
+                 block=BasicBlock, residual_root=False, attention=SEBlock, linear_root=False,
                  opt=None):
         super(DLA, self).__init__()
         self.channels = channels
@@ -265,6 +309,11 @@ class DLA(nn.Module):
                     padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True))
+        # 通道注意力
+        self.attention = SEBlock(channels[0]*4)
+        self.fc_down = nn.Conv2d(
+            64, 16,
+            kernel_size=1, stride=1, padding=0, bias=True)
         # for m in self.modules():
         #     if isinstance(m, nn.Conv2d):
         #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
@@ -305,11 +354,15 @@ class DLA(nn.Module):
     def forward(self, x, background, pre_img=None, pre_hm=None):
         y = []
         x = self.base_layer(x)
-        x = x + self.base_layer(background) # 没问题吧，反正背景图片也是3通道的
+        x_background = self.base_layer(background) # 没问题吧，反正背景图片也是3通道的
         if pre_img is not None:
-            x = x + self.pre_img_layer(pre_img)
+            x_pre_img =  self.pre_img_layer(pre_img)
         if pre_hm is not None:
-            x = x + self.pre_hm_layer(pre_hm)
+            x_pre_hm =  self.pre_hm_layer(pre_hm)
+        x = torch.cat((x,x_background, x_pre_img, x_pre_hm), 1);
+        x = self.attention(x)
+        # 上面这个操作通道变成64维的了，还要继续吧通道还原回去
+        x = self.fc_down(x)
         for i in range(6):
             x = getattr(self, 'level{}'.format(i))(x)
             y.append(x) # append 其实也就是为了得到每个level对应的输出吧
@@ -327,6 +380,7 @@ class DLA(nn.Module):
         self.fc = nn.Conv2d(
             self.channels[-1], num_classes,
             kernel_size=1, stride=1, padding=0, bias=True)
+        # 加一个fc，用来把concate的通道数还原回去
         self.load_state_dict(model_weights, strict=False)
         # self.fc = fc
 
