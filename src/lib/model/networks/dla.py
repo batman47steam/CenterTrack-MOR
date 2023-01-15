@@ -309,6 +309,12 @@ class DLA(nn.Module):
                     padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True))
+        # else:
+        #     self.pre_hm_layer = nn.Sequential(
+        #     nn.Conv2d(1, channels[0], kernel_size=7, stride=1,
+        #               padding=3, bias=False),
+        #     nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
+        #     nn.ReLU(inplace=True))
         # 通道注意力
         self.attention = SEBlock(channels[0]*4)
         self.fc_down = nn.Conv2d(

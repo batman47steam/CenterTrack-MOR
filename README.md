@@ -6,6 +6,11 @@
 - [x] 改成4个输入，background image, current image, pre image, pre heatmap
   - [x] 其中background image 就是读取每个文件夹下的第一张图片
 
+#### 1-15
+
+- [ ] 从原本的4个输入对应位相加，改成了进行concate，本来每个的输出是16通道的，所以concate以后是64通道，然后concate的结果再经过一个SEBlock进行通道attention，因为attention以后的结果还是64通道，所以又用了一个1x1的conv2d，通过这个把通道数给降下来
+- [ ] 因为实现上的一些差异，现在跑demo的时候要设置`--pre_hm`选项，这样在第一帧的时候，detector部分的代码会自己渲染出一个hm
+
 
 
 ## Origin
