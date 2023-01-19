@@ -304,8 +304,10 @@ class DLA(nn.Module):
 
     def forward(self, x, background, pre_img=None, pre_hm=None):
         y = []
+        differ = x - background
         x = self.base_layer(x)
-        x = x + self.base_layer(background) # 没问题吧，反正背景图片也是3通道的
+        #x = x + self.base_layer(background) # 没问题吧，反正背景图片也是3通道的
+        x = x + self.base_layer(differ)
         if pre_img is not None:
             x = x + self.pre_img_layer(pre_img)
         if pre_hm is not None:
