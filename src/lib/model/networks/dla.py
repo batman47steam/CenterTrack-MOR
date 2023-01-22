@@ -240,6 +240,13 @@ class DLA(nn.Module):
                       padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True))
+        # background确实是要重新加，同一个layer肯定是共享参数啊
+        # 干脆同时输入两个看下？就是提前第一张图片和当前图片一起送入
+        self.background_layer = nn.Sequential(
+            nn.Conv2d(6, channels[0], kernel_size=7, stride=1,
+                      padding=3, bias=False),
+            nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
+            nn.ReLU(inplace=True))
         self.level0 = self._make_conv_level(
             channels[0], channels[0], levels[0])
         self.level1 = self._make_conv_level(
@@ -304,10 +311,10 @@ class DLA(nn.Module):
 
     def forward(self, x, background, pre_img=None, pre_hm=None):
         y = []
-        differ = x - background
+        temporal = torch.cat((x, background), dim=1)
         x = self.base_layer(x)
-        #x = x + self.base_layer(background) # 没问题吧，反正背景图片也是3通道的
-        x = x + self.base_layer(differ)
+        # x = x + self.base_layer(background) # 没问题吧，反正背景图片也是3通道的, 写成这样，可能表示他们是公用权重的，你有没有相过
+        x = x + self.background_layer(temporal)
         if pre_img is not None:
             x = x + self.pre_img_layer(pre_img)
         if pre_hm is not None:
