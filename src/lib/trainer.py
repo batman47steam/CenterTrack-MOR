@@ -214,6 +214,10 @@ class Trainer(object):
         pre_img = batch['pre_img'][i].detach().cpu().numpy().transpose(1, 2, 0)
         pre_img = np.clip(((
           pre_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
+        background_img = batch['background'][i].detach().cpu().numpy().transpose(1, 2, 0)
+        background_img = np.clip(((
+          background_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
+        debugger.add_img(background_img, 'background')
         debugger.add_img(pre_img, 'pre_img_pred')
         debugger.add_img(pre_img, 'pre_img_gt')
         if 'pre_hm' in batch:
