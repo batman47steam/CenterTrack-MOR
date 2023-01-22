@@ -83,7 +83,7 @@ class Detector(object):
       scale_start_time = time.time()
       if not pre_processed:
         # not prefetch testing or demo
-        images, meta = self.pre_process(image, scale, meta)
+        images, meta = self.pre_process(image, scale, meta) # 预处理input和background1
         self.background_image, _ = self.pre_process(self.background_image, scale, meta)
       else:
         # prefetch testing
@@ -104,7 +104,7 @@ class Detector(object):
         # initialize the first frame
         if self.pre_images is None: # 第一次的时候pre_images肯定是none
           print('Initialize tracking!')
-          self.pre_images = images
+          self.pre_images = images # 所以第一次pre——images就是当前image本身
           self.tracker.init_track(
             meta['pre_dets'] if 'pre_dets' in meta else [])
         if self.opt.pre_hm:

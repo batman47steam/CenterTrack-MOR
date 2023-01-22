@@ -68,7 +68,7 @@ def demo(opt):
           save_and_exit(opt, out, results, out_name)
       else:
         if cnt < len(image_names):
-          background = cv2.imread(background_path)
+          background = cv2.imread(background_path) # 读入第一张图片当作是background image
           img = cv2.imread(image_names[cnt]) # 如果计数器小于图片的数目，就会不停的读取新的图片出来
         else:
           save_and_exit(opt, out, results, out_name)
