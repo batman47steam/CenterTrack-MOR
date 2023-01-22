@@ -99,9 +99,10 @@ class GenericDataset(data.Dataset):
     if self.split == 'train': # 主要涉及是否进行rotation和flip的图像操作
       c, aug_s, rot = self._get_aug_param(c, s, width, height) # 差不多是得到新的中心点c（这个c是整个图像的中心点） 缩放比例aug_S， 以及rot
       s = s * aug_s
-      if np.random.random() < opt.flip:
+      if np.random.random() < opt.flip: # img在这里已经flip过了，但是background没有flip
         flipped = 1
         img = img[:, ::-1, :]
+        background = background[:, ::-1, :] # background image肯定也要相应的flip才行啊
         anns = self._flip_anns(anns, width) # 如果图像发生flip了，相应的ann就也要flip
 
     # get_affine_transform得到仿射变化对应的矩阵， input_w, input_h是512，对应的output_w, output_h是128
